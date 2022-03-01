@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: registry
+  name: registry
+spec:
+  ports:
+    - name: "http"
+      port: 80
+      targetPort: 5000
+  selector:
+    app: registry
+  type: ClusterIP
+  #type: LoadBalancer
+  #loadBalancerIP: ${REGISTRY_IP}
+status:
+  loadBalancer: {}

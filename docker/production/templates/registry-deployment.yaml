@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: registry
+  name: registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: registry
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: registry
+    spec:
+      #Copies the read only config map data to
+      #the initial config file on the cinder volume
+      initContainers:
+        - name: init-registry
+          image: ubuntu:focal
+          command: ['sh', '-c']
+          args:
+            - cd /mnt/Registry/;
+              cp /appsettings-init.json ./appsettings.json;
+              pwd;
+              ls -ltr;
+          volumeMounts:
+            - mountPath: /mnt/Registry/
+              name: registry-claim
+            - mountPath: /appsettings-init.json
+              subPath: appsettings.json
+              name: appconfig
+
+      containers:
+        - image: dronedb/registry:latest
+          name: registry
+          #env:
+          ports:
+            - containerPort: 5000
+          resources: {}
+          volumeMounts:
+            - mountPath: /Registry/App_Data
+              subPath: App_Data
+              name: registry-claim
+            - mountPath: /Registry/logs
+              subPath: logs
+              name: registry-claim
+
+            - mountPath: /Registry/appsettings.json
+              subPath: appsettings.json
+              name: registry-claim
+
+      restartPolicy: Always
+      volumes:
+        - name: registry-claim
+          persistentVolumeClaim:
+            claimName: registry-claim
+        - name: appconfig
+          configMap:
+            name: registry-config-map
+            # Required since "mountPath: /app" only doesn't work (app crashes)
+            items:
+            - key: appsettings.json
+              path: appsettings.json
+

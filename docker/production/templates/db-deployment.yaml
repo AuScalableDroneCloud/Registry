@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: db
+  name: db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - image: mariadb:10.6
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: ${MYSQL_ROOT_PASSWORD}
+            - name: MYSQL_PWD
+              value: ${MYSQL_ROOT_PASSWORD}
+          livenessProbe:
+            exec:
+              command:
+                - mysqladmin
+                - ping
+                - -h
+                - localhost
+            failureThreshold: 10
+            timeoutSeconds: 20
+          name: db
+          ports:
+            - containerPort: 3306
+          resources: {}
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              subPath: mysql
+              name: db-claim
+            - mountPath: /docker-entrypoint-initdb.d/initialize.sql
+              subPath: initialize.sql
+              name: initsql
+      restartPolicy: Always
+      volumes:
+        - name: db-claim
+          persistentVolumeClaim:
+            claimName: db-claim
+        - name: initsql
+          configMap:
+            name: db-config-map
+            items:
+            - key: initialize.sql
+              path: initialize.sql
+
