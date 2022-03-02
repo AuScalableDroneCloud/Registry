@@ -352,3 +352,5 @@ appsettings.json
 /Registry.Web/ddb-log*
 /Registry.Web/uploads
 /Registry.Web/s3cache
+
+docker/production/yaml/*
