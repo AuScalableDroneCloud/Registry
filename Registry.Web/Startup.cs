@@ -26,7 +26,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -53,6 +52,7 @@ using Registry.Ports;
 using Serilog;
 using Serilog.Events;
 using IHostingEnvironment = Microsoft.Extensions.Hosting.IHostingEnvironment;
+using Auth0.AspNetCore.Authentication;
 
 namespace Registry.Web
 {
@@ -73,6 +73,7 @@ namespace Registry.Web
         {
             services.AddCors();
             services.AddControllers();
+            //services.AddControllersWithViews();
 
             services.AddSwaggerGen(c =>
             {
@@ -158,6 +159,14 @@ namespace Registry.Web
                     };
                 });*/
 
+            // https://github.com/auth0/auth0-aspnetcore-authentication
+            services.AddAuth0WebAppAuthentication(options =>
+            {
+              options.Domain = Configuration["Auth0:Domain"];
+              options.ClientId = Configuration["Auth0:ClientId"];
+            });
+
+            /*
             services.AddAuthentication(options => {
                 options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
                 options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
@@ -212,7 +221,7 @@ namespace Registry.Web
                         return Task.CompletedTask;
                     }
                 };
-            });
+            });*/
 
             services.Configure<IdentityOptions>(options =>
             {
