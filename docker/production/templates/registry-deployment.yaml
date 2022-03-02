@@ -36,7 +36,7 @@ spec:
 
       containers:
         #- image: dronedb/registry:latest
-        - image: ghcr.io/auscalabledronecloud/dronedb-registry:latest
+        - image: ghcr.io/auscalabledronecloud/dronedb-registry:sha-360de34
           name: registry
           #env:
           ports:
