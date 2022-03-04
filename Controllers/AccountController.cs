@@ -30,5 +30,16 @@ public class AccountController : Controller
         await HttpContext.SignOutAsync(Auth0Constants.AuthenticationScheme, authenticationProperties);
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
     }
+
+    [Authorize]
+    public IActionResult Profile()
+    {
+        return View(new
+        {
+            Name = User.Identity.Name,
+            EmailAddress = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value,
+            ProfileImage = User.Claims.FirstOrDefault(c => c.Type == "picture")?.Value
+        });
+    }
 }
 

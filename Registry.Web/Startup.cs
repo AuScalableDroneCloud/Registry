@@ -72,8 +72,7 @@ namespace Registry.Web
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddCors();
-            services.AddControllers();
-            //services.AddControllersWithViews();
+            //services.AddControllers();
 
             services.AddSwaggerGen(c =>
             {
@@ -139,6 +138,12 @@ namespace Registry.Web
             ConfigureDbProvider<RegistryContext>(services, appSettings.RegistryProvider, RegistryConnectionName);
 
             var key = Encoding.ASCII.GetBytes(appSettings.Secret);
+
+            ///////////////////////////////////////////////////////////////////////
+            ///https://auth0.com/docs/quickstart/webapp/aspnet-core
+            // Cookie configuration for HTTP to support cookies with SameSite=None
+            services.ConfigureSameSiteNoneCookies();
+
             ///////////////////////////////////////////////////////////////////////
             // https://auth0.com/docs/quickstart/webapp/aspnet-core-2/01-login
             /*services.AddAuthentication(auth =>
@@ -165,6 +170,8 @@ namespace Registry.Web
               options.Domain = Configuration["Auth0:Domain"];
               options.ClientId = Configuration["Auth0:ClientId"];
             });
+
+            services.AddControllersWithViews();
 
             /*
             services.AddAuthentication(options => {
@@ -406,6 +413,7 @@ namespace Registry.Web
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
+                //endpoints.MapDefaultControllerRoute();
 
                 endpoints.MapHealthChecks("/quickhealth", new HealthCheckOptions
                 {
