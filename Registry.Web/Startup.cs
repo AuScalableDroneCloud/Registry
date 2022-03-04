@@ -141,8 +141,6 @@ namespace Registry.Web
 
             ///////////////////////////////////////////////////////////////////////
             ///https://auth0.com/docs/quickstart/webapp/aspnet-core
-            // Cookie configuration for HTTP to support cookies with SameSite=None
-            services.ConfigureSameSiteNoneCookies();
 
             ///////////////////////////////////////////////////////////////////////
             // https://auth0.com/docs/quickstart/webapp/aspnet-core-2/01-login
