@@ -15,6 +15,7 @@ using Hangfire.Console;
 using Hangfire.MySql;
 using HealthChecks.UI.Client;
 using Registry.Web.Models;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -117,7 +118,7 @@ namespace Registry.Web
 
             ConfigureDbProvider<ApplicationDbContext>(services, appSettings.AuthProvider, IdentityConnectionName);
 
-            if (!string.IsNullOrWhiteSpace(appSettings.ExternalAuthUrl))
+            /*if (!string.IsNullOrWhiteSpace(appSettings.ExternalAuthUrl))
             {
                 services.AddIdentityCore<User>()
                     .AddRoles<IdentityRole>()
@@ -133,7 +134,7 @@ namespace Registry.Web
                     .AddSignInManager();
 
                 services.AddScoped<ILoginManager, LocalLoginManager>();
-            }
+            }*/
 
             ConfigureDbProvider<RegistryContext>(services, appSettings.RegistryProvider, RegistryConnectionName);
 
@@ -167,6 +168,7 @@ namespace Registry.Web
             {
               options.Domain = Configuration["Auth0:Domain"];
               options.ClientId = Configuration["Auth0:ClientId"];
+              options.ClientSecret = Configuration["Auth0:ClientSecret"];
             });
 
             services.AddControllersWithViews();
