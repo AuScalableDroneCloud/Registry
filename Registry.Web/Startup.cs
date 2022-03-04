@@ -118,7 +118,7 @@ namespace Registry.Web
 
             ConfigureDbProvider<ApplicationDbContext>(services, appSettings.AuthProvider, IdentityConnectionName);
 
-            /*if (!string.IsNullOrWhiteSpace(appSettings.ExternalAuthUrl))
+            if (!string.IsNullOrWhiteSpace(appSettings.ExternalAuthUrl))
             {
                 services.AddIdentityCore<User>()
                     .AddRoles<IdentityRole>()
@@ -134,7 +134,7 @@ namespace Registry.Web
                     .AddSignInManager();
 
                 services.AddScoped<ILoginManager, LocalLoginManager>();
-            }*/
+            }
 
             ConfigureDbProvider<RegistryContext>(services, appSettings.RegistryProvider, RegistryConnectionName);
 
