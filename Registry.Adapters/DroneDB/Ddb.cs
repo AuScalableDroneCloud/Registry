@@ -110,9 +110,7 @@ namespace Registry.Adapters.DroneDB
 
             var parent = Path.GetDirectoryName(path);
 
-            if (string.IsNullOrEmpty(parent)) parent = "*";
-
-            objs = Search(parent, true).ToArray();
+            objs = Search(parent).ToArray();
 
             return objs.FirstOrDefault(item => item.Path == path);
         }
@@ -463,7 +461,7 @@ namespace Registry.Adapters.DroneDB
 
         public virtual async Task<Entry> GetInfoAsync(CancellationToken cancellationToken = default)
         {
-            return await Task<Entry>.Factory.StartNew(() => GetInfo(), cancellationToken,
+            return await Task<Entry>.Factory.StartNew(GetInfo, cancellationToken,
                 TaskCreationOptions.LongRunning, TaskScheduler.Default);
         }
 

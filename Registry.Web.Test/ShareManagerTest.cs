@@ -33,6 +33,8 @@ using Registry.Web.Services.Managers;
 using Registry.Web.Services.Ports;
 using Registry.Web.Test.Adapters;
 using Registry.Ports.DroneDB.Models;
+using Registry.Web.Identity;
+using Registry.Web.Identity.Models;
 using Registry.Web.Services;
 using Attributes = Registry.Ports.DroneDB.Models.EntryAttributes;
 using Entry = Registry.Ports.DroneDB.Models.Entry;
@@ -142,10 +144,11 @@ namespace Registry.Web.Test
             await using var appContext = GetAppTest1Context();
 
             var settings = JsonConvert.DeserializeObject<AppSettings>(_settingsJson);
-            settings.StoragePath = test.TestFolder;
+            settings.DatasetsPath = test.TestFolder;
             _appSettingsMock.Setup(o => o.Value).Returns(settings);
             
             _authManagerMock.Setup(o => o.IsUserAdmin()).Returns(Task.FromResult(true));
+            _authManagerMock.Setup(o => o.IsOwnerOrAdmin(It.IsAny<Organization>())).Returns(Task.FromResult(true));
             var user = new User
             {
                 UserName = userName,
@@ -206,7 +209,7 @@ namespace Registry.Web.Test
             // Initialize
             var initRes = await shareManager.Initialize(new ShareInitDto
             {
-                OrgSlug = MagicStrings.PublicOrganizationSlug
+                Tag = MagicStrings.PublicOrganizationSlug + "/test"
             });
 
             initRes.Should().NotBeNull();
@@ -244,10 +247,11 @@ namespace Registry.Web.Test
             await using var appContext = GetAppTest1Context();
 
             var settings = JsonConvert.DeserializeObject<AppSettings>(_settingsJson);
-            settings.StoragePath = test.TestFolder;
+            settings.DatasetsPath = test.TestFolder;
             _appSettingsMock.Setup(o => o.Value).Returns(settings);
             
             _authManagerMock.Setup(o => o.IsUserAdmin()).Returns(Task.FromResult(true));
+            _authManagerMock.Setup(o => o.IsOwnerOrAdmin(It.IsAny<Organization>())).Returns(Task.FromResult(true));
             var user = new User
             {
                 UserName = userName,
@@ -356,11 +360,12 @@ namespace Registry.Web.Test
             await using var appContext = GetAppTest1Context();
 
             var settings = JsonConvert.DeserializeObject<AppSettings>(_settingsJson);
-            settings.StoragePath = test.TestFolder;
+            settings.DatasetsPath = test.TestFolder;
             _appSettingsMock.Setup(o => o.Value).Returns(settings);
             
             _authManagerMock.Setup(o => o.IsUserAdmin()).Returns(Task.FromResult(true));
             _authManagerMock.Setup(o => o.IsOwnerOrAdmin(It.IsAny<Dataset>())).Returns(Task.FromResult(true));
+            _authManagerMock.Setup(o => o.IsOwnerOrAdmin(It.IsAny<Organization>())).Returns(Task.FromResult(true));
 
             _authManagerMock.Setup(o => o.GetCurrentUser()).Returns(Task.FromResult(new User
             {
@@ -440,10 +445,10 @@ namespace Registry.Web.Test
             res.Name.Should().Be(organizationTestName);
 
             // Initialize
+
             var initRes = await shareManager.Initialize(new ShareInitDto
             {
-                OrgSlug = organizationTestSlug,
-                DsSlug = datasetTestSlug,
+                Tag = organizationTestSlug + "/" + datasetTestSlug,
                 DatasetName = datasetTestName
             });
 
@@ -491,11 +496,12 @@ namespace Registry.Web.Test
             await using var appContext = GetAppTest1Context();
 
             var settings = JsonConvert.DeserializeObject<AppSettings>(_settingsJson);
-            settings.StoragePath = test.TestFolder;
+            settings.DatasetsPath = test.TestFolder;
             _appSettingsMock.Setup(o => o.Value).Returns(settings);
             
             _authManagerMock.Setup(o => o.IsUserAdmin()).Returns(Task.FromResult(true));
             _authManagerMock.Setup(o => o.IsOwnerOrAdmin(It.IsAny<Dataset>())).Returns(Task.FromResult(true));
+            _authManagerMock.Setup(o => o.IsOwnerOrAdmin(It.IsAny<Organization>())).Returns(Task.FromResult(true));
 
             _authManagerMock.Setup(o => o.GetCurrentUser()).Returns(Task.FromResult(new User
             {
@@ -580,8 +586,7 @@ namespace Registry.Web.Test
             // Initialize
             var initRes = await shareManager.Initialize(new ShareInitDto
             {
-                DsSlug = datasetTestSlug,
-                OrgSlug = organizationTestSlug,
+                Tag = organizationTestSlug + "/" + datasetTestSlug,
                 DatasetName = datasetTestName
             });
 
@@ -642,11 +647,13 @@ namespace Registry.Web.Test
             await using var appContext = GetAppTest1Context();
             
             var settings = JsonConvert.DeserializeObject<AppSettings>(_settingsJson);
-            settings.StoragePath = test.TestFolder;
+            settings.DatasetsPath = test.TestFolder;
             _appSettingsMock.Setup(o => o.Value).Returns(settings);
 
             _authManagerMock.Setup(o => o.IsUserAdmin()).Returns(Task.FromResult(true));
             _authManagerMock.Setup(o => o.IsOwnerOrAdmin(It.IsAny<Dataset>())).Returns(Task.FromResult(true));
+            _authManagerMock.Setup(o => o.IsOwnerOrAdmin(It.IsAny<Organization>())).Returns(Task.FromResult(true));
+
             _authManagerMock.Setup(o => o.GetCurrentUser()).Returns(Task.FromResult(new User
             {
                 UserName = userName,
@@ -722,8 +729,7 @@ namespace Registry.Web.Test
             // Initialize
             var initRes = await shareManager.Initialize(new ShareInitDto
             {
-                DsSlug = datasetTestSlug,
-                OrgSlug = organizationTestSlug,
+                Tag = organizationTestSlug + "/" + datasetTestSlug,
                 DatasetName = datasetTestName,
             });
 
@@ -744,8 +750,7 @@ namespace Registry.Web.Test
             // Initialize
             var newInitRes = await shareManager.Initialize(new ShareInitDto
             {
-                DsSlug = datasetTestSlug,
-                OrgSlug = organizationTestSlug,
+                Tag = organizationTestSlug + "/" + datasetTestSlug,
                 DatasetName = datasetTestName,
             });
 

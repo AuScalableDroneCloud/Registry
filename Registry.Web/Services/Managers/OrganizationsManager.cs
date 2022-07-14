@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Registry.Web.Data;
 using Registry.Web.Exceptions;
+using Registry.Web.Identity;
 using Registry.Web.Models.DTO;
 using Registry.Web.Services.Ports;
 using Registry.Web.Utilities;
@@ -50,7 +51,7 @@ namespace Registry.Web.Services.Managers
                 if (currentUser == null)
                     throw new UnauthorizedException("Invalid user");
 
-                query = query.Where(item => item.OwnerId == currentUser.Id || item.OwnerId == null || item.IsPublic);
+                query = query.Where(item => item.OwnerId == currentUser.Id);
             }
             
             // This can be optimized, but it's not a big deal because it's a cross database query anyway

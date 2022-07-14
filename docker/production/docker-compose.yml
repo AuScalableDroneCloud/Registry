@@ -10,7 +10,7 @@ services:
         environment:
             - MYSQL_ROOT_PASSWORD
         healthcheck:
-            test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p$MYSQL_ROOT_PASSWORD"]
             timeout: 20s
             retries: 10
 
@@ -28,10 +28,11 @@ services:
         depends_on:
             - db
         image: dronedb/registry
+        tmpfs:
+            - /tmp
         volumes:
-            - ./data/App_Data:/Registry/App_Data
-            - ./appsettings.json:/Registry/appsettings.json
-            - ./data/logs:/Registry/logs
+            - ./data:/data
+            - ./appsettings.json:/data/appsettings.json
         ports:
             - "5000:5000"
         restart: unless-stopped

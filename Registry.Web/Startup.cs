@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Caching;
@@ -15,7 +14,6 @@ using Hangfire.Console;
 using Hangfire.MySql;
 using HealthChecks.UI.Client;
 using Registry.Web.Models;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -26,7 +24,6 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,37 +40,32 @@ using Registry.Web.Filters;
 using Registry.Web.HealthChecks;
 using Registry.Web.Middlewares;
 using Registry.Web.Models.Configuration;
-using Registry.Web.Services;
 using Registry.Web.Services.Adapters;
 using Registry.Web.Services.Managers;
 using Registry.Web.Services.Ports;
 using Registry.Web.Utilities;
 using Registry.Adapters.DroneDB;
 using Registry.Ports;
+using Registry.Web.Identity;
+using Registry.Web.Identity.Models;
 using Serilog;
 using Serilog.Events;
-using IHostingEnvironment = Microsoft.Extensions.Hosting.IHostingEnvironment;
-using Auth0.AspNetCore.Authentication;
 
 namespace Registry.Web
 {
     public class Startup
     {
-        private const string IdentityConnectionName = "IdentityConnection";
-        private const string RegistryConnectionName = "RegistryConnection";
-        private const string HangfireConnectionName = "HangfireConnection";
-
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
         }
 
-        public IConfiguration Configuration { get; }
+        private IConfiguration Configuration { get; }
 
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddCors();
-            //services.AddControllers();
+            services.AddControllers();
 
             services.AddSwaggerGen(c =>
             {
@@ -109,14 +101,15 @@ namespace Registry.Web
                 options.UseCaseSensitivePaths = true;
             });
 
-            services.AddSpaStaticFiles(config => { config.RootPath = "ClientApp/build"; });
+            services.AddSpaStaticFiles(config => { config.RootPath = "ClientApp"; });
 
             // Let's use a strongly typed class for settings
             var appSettingsSection = Configuration.GetSection("AppSettings");
             services.Configure<AppSettings>(appSettingsSection);
             var appSettings = appSettingsSection.Get<AppSettings>();
 
-            ConfigureDbProvider<ApplicationDbContext>(services, appSettings.AuthProvider, IdentityConnectionName);
+            ConfigureDbProvider<ApplicationDbContext>(services, appSettings.AuthProvider,
+                MagicStrings.IdentityConnectionName, "Identity");
 
             if (!string.IsNullOrWhiteSpace(appSettings.ExternalAuthUrl))
             {
@@ -136,16 +129,11 @@ namespace Registry.Web
                 services.AddScoped<ILoginManager, LocalLoginManager>();
             }
 
-            ConfigureDbProvider<RegistryContext>(services, appSettings.RegistryProvider, RegistryConnectionName);
+            ConfigureDbProvider<RegistryContext>(services, appSettings.RegistryProvider,
+                MagicStrings.RegistryConnectionName, "Data");
 
             var key = Encoding.ASCII.GetBytes(appSettings.Secret);
-
-            ///////////////////////////////////////////////////////////////////////
-            ///https://auth0.com/docs/quickstart/webapp/aspnet-core
-
-            ///////////////////////////////////////////////////////////////////////
-            // https://auth0.com/docs/quickstart/webapp/aspnet-core-2/01-login
-            /*services.AddAuthentication(auth =>
+            services.AddAuthentication(auth =>
                 {
                     auth.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                     auth.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -161,74 +149,7 @@ namespace Registry.Web
                         ValidateIssuer = false,
                         ValidateAudience = false
                     };
-                });*/
-
-            // https://github.com/auth0/auth0-aspnetcore-authentication
-            services.AddAuth0WebAppAuthentication(options =>
-            {
-              options.Domain = Configuration["Auth0:Domain"];
-              options.ClientId = Configuration["Auth0:ClientId"];
-              options.ClientSecret = Configuration["Auth0:ClientSecret"];
-            });
-
-            services.AddControllersWithViews();
-
-            /*
-            services.AddAuthentication(options => {
-                options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-                options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-            })
-            .AddCookie()
-            .AddOpenIdConnect("Auth0", options => {
-                // Set the authority to your Auth0 domain
-                options.Authority = $"https://{Configuration["Auth0:Domain"]}";
-
-                // Configure the Auth0 Client ID and Client Secret
-                options.ClientId = Configuration["Auth0:ClientId"];
-                options.ClientSecret = Configuration["Auth0:ClientSecret"];
-
-                // Set response type to code
-                options.ResponseType = "code"; //OpenIdConnectResponseType.Code;
-
-                // Configure the scope
-                options.Scope.Clear();
-                options.Scope.Add("openid");
-
-                // Set the callback path, so Auth0 will call back to http://localhost:3000/callback
-                // Also ensure that you have added the URL as an Allowed Callback URL in your Auth0 dashboard
-                options.CallbackPath = new PathString("/callback");
-
-                // Configure the Claims Issuer to be Auth0
-                options.ClaimsIssuer = "Auth0";
-
-                //https://github.com/auth0-samples/auth0-aspnetcore-mvc-samples/blob/netcore2.1/Quickstart/01-Login/Startup.cs
-                options.Events = new OpenIdConnectEvents
-                {
-                    // handle the logout redirection 
-                    OnRedirectToIdentityProviderForSignOut = (context) =>
-                    {
-                        var logoutUri = $"https://{Configuration["Auth0:Domain"]}/v2/logout?client_id={Configuration["Auth0:ClientId"]}";
-
-                        var postLogoutUri = context.Properties.RedirectUri;
-                        if (!string.IsNullOrEmpty(postLogoutUri))
-                        {
-                            if (postLogoutUri.StartsWith("/"))
-                            {
-                                // transform to absolute
-                                var request = context.Request;
-                                postLogoutUri = request.Scheme + "://" + request.Host + request.PathBase + postLogoutUri;
-                            }
-                            logoutUri += $"&returnTo={ Uri.EscapeDataString(postLogoutUri)}";
-                        }
-
-                        context.Response.Redirect(logoutUri);
-                        context.HandleResponse();
-
-                        return Task.CompletedTask;
-                    }
-                };
-            });*/
+                });
 
             services.Configure<IdentityOptions>(options =>
             {
@@ -269,7 +190,7 @@ namespace Registry.Web
                 .AddDbContextCheck<RegistryContext>("Registry database health check", null, new[] { "database" })
                 .AddDbContextCheck<ApplicationDbContext>("Registry identity database health check", null,
                     new[] { "database" })
-                .AddDiskSpaceHealthCheck(appSettings.StoragePath, "Ddb storage path space health check", null,
+                .AddDiskSpaceHealthCheck(appSettings.DatasetsPath, "Ddb storage path space health check", null,
                     new[] { "storage" })
                 .AddHangfire(options => { options.MinimumAvailableServers = 1; }, "Hangfire health check", null,
                     new[] { "database" });
@@ -359,18 +280,17 @@ namespace Registry.Web
             }
             else
             {
-                app.UseExceptionHandler("/Home/Error");
                 app.UseHsts();
             }
-           
+
             app.UseSerilogRequestLogging(options =>
             {
                 // Customize the message template
                 options.MessageTemplate = "Handled {RequestPath}";
-    
+
                 // Emit debug-level events instead of the defaults
                 options.GetLevel = (httpContext, elapsed, ex) => LogEventLevel.Debug;
-    
+
                 // Attach additional properties to the request completion event
                 options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
                 {
@@ -378,7 +298,7 @@ namespace Registry.Web
                     diagnosticContext.Set("RequestScheme", httpContext.Request.Scheme);
                 };
             });
-            
+
             app.UseDefaultFiles();
 
             app.UseSwagger();
@@ -400,34 +320,28 @@ namespace Registry.Web
             app.UseResponseCompression();
             app.UseResponseCaching();
 
-            ///////////////////////////////////////////////////////////////////////
-            // https://auth0.com/docs/quickstart/webapp/aspnet-core-2/01-login
-            app.UseAuthentication();
-            ///////////////////////////////////////////////////////////////////////
-
             app.UseMiddleware<TokenManagerMiddleware>();
 
-            app.UseHangfireDashboard("/hangfire", new DashboardOptions
+            app.UseHangfireDashboard(MagicStrings.HangFireUrl, new DashboardOptions
             {
                 AsyncAuthorization = new[] { new HangfireAuthorizationFilter() }
             });
-            
+
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
-                //endpoints.MapDefaultControllerRoute();
 
-                endpoints.MapHealthChecks("/quickhealth", new HealthCheckOptions
+                endpoints.MapHealthChecks(MagicStrings.QuickHealthUrl, new HealthCheckOptions
                 {
                     Predicate = _ => false
                 }).RequireAuthorization();
 
-                endpoints.MapHealthChecks("/health", new HealthCheckOptions
+                endpoints.MapHealthChecks(MagicStrings.HealthUrl, new HealthCheckOptions
                 {
                     ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
                 }).RequireAuthorization();
 
-                endpoints.MapGet("/version",
+                endpoints.MapGet(MagicStrings.VersionUrl,
                     async context =>
                     {
                         await context.Response.WriteAsync(
@@ -459,43 +373,83 @@ namespace Registry.Web
                 });
             });
 
-            SetupDatabase(app);
+            SetupDatabase(app).Wait();
             SetupFileCache(app);
             //SetupHangfire(app);
 
             PrintStartupInfo(app);
         }
 
-        private void PrintStartupInfo(IApplicationBuilder app)
+        private static void PrintStartupInfo(IApplicationBuilder app)
         {
+            if (Log.IsEnabled(LogEventLevel.Information)) return;
 
-            if (!Log.IsEnabled(LogEventLevel.Information))
+            var env = app.ApplicationServices.GetService<IHostEnvironment>();
+            Console.WriteLine(" -> Application started in {0} mode", env?.EnvironmentName ?? "unknown");
+            Console.WriteLine(" ?> Version: {0}", Assembly.GetExecutingAssembly().GetName().Version);
+            Console.WriteLine(" ?> Application started at {0}", DateTime.Now);
+
+            var serverAddresses = app.ServerFeatures.Get<IServerAddressesFeature>()?.Addresses;
+            if (serverAddresses != null)
             {
-                
-                var env = app.ApplicationServices.GetService<IHostEnvironment>();
-                Console.WriteLine(" -> Application startup");
-                Console.WriteLine(" ?> Environment: {0}", env?.EnvironmentName ?? "Unknown");
-                Console.WriteLine(" ?> Version: {0}", Assembly.GetExecutingAssembly().GetName().Version);
-                Console.WriteLine(" ?> Application started at {0}", DateTime.Now);
-                
-                var serverAddresses = app.ServerFeatures.Get<IServerAddressesFeature>()?.Addresses;
-                if (serverAddresses != null)
+                foreach (var address in serverAddresses)
                 {
-                    foreach (var address in serverAddresses)
-                    {
-                        Console.WriteLine($" ?> Now listening on: {address}");
-                    }
+                    var addr = address.Replace("0.0.0.0", "localhost");
+                    Console.WriteLine($" ?> Registry url: {addr}");
                 }
-                
-                var settings = app.ApplicationServices.GetService<IOptions<AppSettings>>();
-                
-                var appSettings = settings?.Value;
-                if (appSettings != null && !string.IsNullOrWhiteSpace(appSettings.ExternalUrlOverride))
-                {
-                    Console.WriteLine($" ?> External URL: {appSettings.ExternalUrlOverride}");
-                }
-
             }
+
+            var settingsOptions = app.ApplicationServices.GetService<IOptions<AppSettings>>();
+
+            if (settingsOptions == null)
+                throw new InvalidOperationException("AppSettings not found");
+
+            var settings = settingsOptions.Value;
+
+            if (settings.DefaultAdmin == null)
+                throw new InvalidOperationException("DefaultAdmin not found");
+
+            Console.WriteLine(" ?> Admin credentials: ");
+            Console.WriteLine(" ?> Username: {0}", settings.DefaultAdmin.UserName);
+            Console.WriteLine(" ?> Password: {0}", settings.DefaultAdmin.Password);
+
+            var url = serverAddresses?.FirstOrDefault();
+
+            if (!string.IsNullOrWhiteSpace(settings.ExternalUrlOverride))
+            {
+                Console.WriteLine($" ?> External URL: {settings.ExternalUrlOverride}");
+                url = settings.ExternalUrlOverride;
+            }
+
+            if (url != null)
+            {
+                var builder = new UriBuilder(url);
+                
+                if (builder.Host == "0.0.0.0") builder.Host = "localhost";
+                var baseUri = builder.Uri;
+
+                Console.WriteLine();
+                Console.WriteLine(" ?> Useful links:");
+
+                var swaggerUri = new Uri(baseUri, MagicStrings.SwaggerUrl);
+                Console.WriteLine($" ?> Swagger: {swaggerUri}");
+                
+                var versionUri = new Uri(baseUri, MagicStrings.VersionUrl);
+                Console.WriteLine($" ?> Version: {versionUri}");
+
+                var quickHealthUri = new Uri(baseUri, MagicStrings.QuickHealthUrl);
+                Console.WriteLine($" ?> (req auth) Quick Health: {quickHealthUri}");
+                
+                var healthUri = new Uri(baseUri, MagicStrings.HealthUrl);
+                Console.WriteLine($" ?> (req auth) Health: {healthUri}");
+
+                var hangfireUri = new Uri(baseUri, MagicStrings.HangFireUrl);
+                Console.WriteLine($" ?> (req auth) Hangfire: {hangfireUri}");
+
+                Console.WriteLine();
+            }
+
+            Console.WriteLine(" ?> Press Ctrl+C to quit");
         }
 
         private void SetupFileCache(IApplicationBuilder app)
@@ -506,7 +460,7 @@ namespace Registry.Web
             var cacheManager = app.ApplicationServices.GetService<ICacheManager>();
 
             Debug.Assert(cacheManager != null, nameof(cacheManager) + " != null");
-            
+
             cacheManager.Register(MagicStrings.TileCacheSeed, parameters =>
             {
                 var ddb = (DDB)parameters[0];
@@ -518,9 +472,8 @@ namespace Registry.Web
                 var retina = (bool)parameters[6];
 
                 return ddb.GenerateTile(sourcePath, tz, tx, ty, retina, sourceHash);
-
             }, appSettings.TilesCacheExpiration);
-            
+
             cacheManager.Register(MagicStrings.ThumbnailCacheSeed, parameters =>
             {
                 var ddb = (DDB)parameters[0];
@@ -528,9 +481,7 @@ namespace Registry.Web
                 var size = (int)parameters[2];
 
                 return ddb.GenerateThumbnail(sourcePath, size);
-
             }, appSettings.ThumbnailsCacheExpiration);
-            
         }
 
         // private void SetupHangfire(IApplicationBuilder app)
@@ -558,57 +509,39 @@ namespace Registry.Web
         // }
 
         // NOTE: Maybe put all this as stated in https://stackoverflow.com/a/55707949
-        private void SetupDatabase(IApplicationBuilder app)
+        private async Task SetupDatabase(IApplicationBuilder app)
         {
             using var serviceScope = app.ApplicationServices
                 .GetRequiredService<IServiceScopeFactory>()
                 .CreateScope();
-            using var applicationDbContext = serviceScope.ServiceProvider.GetService<ApplicationDbContext>();
+            await using var applicationDbContext = serviceScope.ServiceProvider.GetService<ApplicationDbContext>();
 
             if (applicationDbContext == null)
                 throw new InvalidOperationException("Cannot get application db context from service provider");
 
-            if (applicationDbContext.Database.IsSqlite())
-            {
-                CommonUtils.EnsureFolderCreated(Configuration.GetConnectionString(IdentityConnectionName));
+            var identityIsSqlite = applicationDbContext.Database.IsSqlite();
 
-                // No migrations
-                applicationDbContext.Database.EnsureCreated();
-            }
+            if (identityIsSqlite)
+                CommonUtils.EnsureFolderCreated(Configuration.GetConnectionString(MagicStrings.IdentityConnectionName));
 
-            if (applicationDbContext.Database.IsSqlServer())
-                // No migrations
-                applicationDbContext.Database.EnsureCreated();
+            if (identityIsSqlite || applicationDbContext.Database.IsMySql())
+                await applicationDbContext.Database.SafeMigrateAsync();
 
-
-            if (applicationDbContext.Database.IsMySql() && applicationDbContext.Database.GetPendingMigrations().Any())
-                // Use migrations
-                applicationDbContext.Database.Migrate();
-
-            using var registryDbContext = serviceScope.ServiceProvider.GetService<RegistryContext>();
+            await using var registryDbContext = serviceScope.ServiceProvider.GetService<RegistryContext>();
 
             if (registryDbContext == null)
                 throw new InvalidOperationException("Cannot get registry db context from service provider");
 
-            if (registryDbContext.Database.IsSqlite())
-            {
-                CommonUtils.EnsureFolderCreated(Configuration.GetConnectionString(RegistryConnectionName));
-                // No migrations
-                registryDbContext.Database.EnsureCreated();
-            }
+            var registryIsSqlite = registryDbContext.Database.IsSqlite();
 
-            if (registryDbContext.Database.IsSqlServer())
-                // No migrations
-                registryDbContext.Database.EnsureCreated();
+            if (registryIsSqlite)
+                CommonUtils.EnsureFolderCreated(Configuration.GetConnectionString(MagicStrings.RegistryConnectionName));
 
+            if (registryIsSqlite || registryDbContext.Database.IsMySql())
+                await registryDbContext.Database.SafeMigrateAsync();
 
-            if (registryDbContext.Database.IsMySql() && registryDbContext.Database.GetPendingMigrations().Any())
-                // Use migrations
-                registryDbContext.Database.Migrate();
-
-
-            CreateInitialData(registryDbContext);
-            CreateDefaultAdmin(registryDbContext, serviceScope.ServiceProvider).Wait();
+            await CreateInitialData(registryDbContext);
+            await CreateDefaultAdmin(registryDbContext, serviceScope.ServiceProvider);
         }
 
         private void RegisterHangfireProvider(IServiceCollection services, AppSettings appSettings)
@@ -633,7 +566,8 @@ namespace Registry.Web
                         .UseSimpleAssemblyNameTypeSerializer()
                         .UseRecommendedSerializerSettings()
                         .UseConsole()
-                        .UseStorage(new MySqlStorage(Configuration.GetConnectionString(HangfireConnectionName),
+                        .UseStorage(new MySqlStorage(
+                            Configuration.GetConnectionString(MagicStrings.HangfireConnectionName),
                             new MySqlStorageOptions
                             {
                                 TransactionIsolationLevel = IsolationLevel.ReadCommitted,
@@ -657,7 +591,7 @@ namespace Registry.Web
             services.AddHangfireServer();
         }
 
-        private void RegisterCacheProvider(IServiceCollection services, AppSettings appSettings)
+        private static void RegisterCacheProvider(IServiceCollection services, AppSettings appSettings)
         {
             if (appSettings.CacheProvider == null)
             {
@@ -696,50 +630,55 @@ namespace Registry.Web
         }
 
         private void ConfigureDbProvider<T>(IServiceCollection services, DbProvider provider,
-            string connectionStringName) where T : DbContext
+            string connectionStringName, string migrationsNamespace) where T : DbContext
         {
             var connectionString = Configuration.GetConnectionString(connectionStringName);
 
             services.AddDbContext<T>(options =>
                 _ = provider switch
                 {
-                    DbProvider.Sqlite => options.UseSqlite(connectionString),
+                    DbProvider.Sqlite => options.UseSqlite(connectionString,
+                        x => x.MigrationsAssembly("Registry.Web." + migrationsNamespace + ".SqliteMigrations")),
                     DbProvider.Mysql => options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString),
-                        builder => builder.EnableRetryOnFailure()),
-                    DbProvider.Mssql => options.UseSqlServer(connectionString),
+                        x =>
+                        {
+                            x.EnableRetryOnFailure();
+                            x.MigrationsAssembly("Registry.Web." + migrationsNamespace + ".MySqlMigrations");
+                        }),
+                    // DbProvider.Mssql => options.UseSqlServer(connectionString),
                     _ => throw new ArgumentOutOfRangeException(nameof(provider), $"Unrecognised provider: '{provider}'")
                 });
         }
 
-        private void CreateInitialData(RegistryContext context)
+        private static async Task CreateInitialData(RegistryContext context)
         {
             // If no organizations in database, let's create the public one
-            if (!context.Organizations.Any())
-            {
-                var entity = new Organization
-                {
-                    Slug = MagicStrings.PublicOrganizationSlug,
-                    Name = MagicStrings.PublicOrganizationSlug.ToPascalCase(false, CultureInfo.InvariantCulture),
-                    CreationDate = DateTime.Now,
-                    Description = "Organization",
-                    IsPublic = true,
-                    // NOTE: Maybe this is a good idea to flag this org as "system"
-                    OwnerId = null
-                };
-                var ds = new Dataset
-                {
-                    Slug = MagicStrings.DefaultDatasetSlug,
-                    CreationDate = DateTime.Now,
-                    InternalRef = Guid.NewGuid()
-                };
-                entity.Datasets = new List<Dataset> { ds };
+            if (context.Organizations.Any())
+                return;
 
-                context.Organizations.Add(entity);
-                context.SaveChanges();
-            }
+            var entity = new Organization
+            {
+                Slug = MagicStrings.PublicOrganizationSlug,
+                Name = MagicStrings.PublicOrganizationSlug.ToPascalCase(false, CultureInfo.InvariantCulture),
+                CreationDate = DateTime.Now,
+                Description = "Organization",
+                IsPublic = true,
+                // NOTE: Maybe this is a good idea to flag this org as "system"
+                OwnerId = null
+            };
+            var ds = new Dataset
+            {
+                Slug = MagicStrings.DefaultDatasetSlug,
+                CreationDate = DateTime.Now,
+                InternalRef = Guid.NewGuid()
+            };
+            entity.Datasets = new List<Dataset> { ds };
+
+            context.Organizations.Add(entity);
+            await context.SaveChangesAsync();
         }
 
-        private async Task CreateDefaultAdmin(RegistryContext context, IServiceProvider provider)
+        private static async Task CreateDefaultAdmin(RegistryContext context, IServiceProvider provider)
         {
             var usersManager = provider.GetService<UserManager<User>>();
             var roleManager = provider.GetService<RoleManager<IdentityRole>>();
@@ -754,45 +693,86 @@ namespace Registry.Web
             if (appSettings == null)
                 throw new InvalidOperationException("Cannot get app settings from service provider");
 
-            // If no users in database, let's create the default admin
-            if (!usersManager.Users.Any())
+            var defaultAdmin = appSettings.Value.DefaultAdmin;
+
+            // Check if admin role exists
+            var adminRole = await roleManager.FindByNameAsync(ApplicationDbContext.AdminRoleName);
+
+            if (adminRole == null)
             {
-                // first we create Admin role  
-                var role = new IdentityRole { Name = ApplicationDbContext.AdminRoleName };
-                var r = await roleManager.CreateAsync(role);
-
+                // Create admin role
+                adminRole = new IdentityRole(ApplicationDbContext.AdminRoleName);
+                var r = await roleManager.CreateAsync(adminRole);
                 if (!r.Succeeded)
-                    throw new InvalidOperationException("Cannot create admin role: " + r?.Errors.ToErrorString());
+                    throw new InvalidOperationException("Cannot create admin role: " + r.Errors.ToErrorString());
+            }
 
-                var defaultAdmin = appSettings.Value.DefaultAdmin;
-                var user = new User
+            // Check if default admin exists
+            var adminUser = usersManager.Users.FirstOrDefault(usr => usr.UserName == defaultAdmin.UserName);
+
+            if (adminUser == null)
+            {
+                // Create admin user
+                adminUser = new User
                 {
                     Email = defaultAdmin.Email,
                     UserName = defaultAdmin.UserName
                 };
 
-                var usrRes = await usersManager.CreateAsync(user, defaultAdmin.Password);
+                var usrRes = await usersManager.CreateAsync(adminUser, defaultAdmin.Password);
                 if (!usrRes.Succeeded)
                     throw new InvalidOperationException(
                         "Cannot create default admin: " + usrRes.Errors?.ToErrorString());
 
-                var res = await usersManager.AddToRoleAsync(user, ApplicationDbContext.AdminRoleName);
+                var res = await usersManager.AddToRoleAsync(adminUser, ApplicationDbContext.AdminRoleName);
                 if (!res.Succeeded)
                     throw new InvalidOperationException(
                         "Cannot add admin to admin role: " + res.Errors?.ToErrorString());
-
-                var entity = new Organization
+            }
+            else
+            {
+                // Ensure that admin has the admin role
+                if (!await usersManager.IsInRoleAsync(adminUser, ApplicationDbContext.AdminRoleName))
                 {
-                    Slug = defaultAdmin.UserName.ToSlug(),
-                    Name = defaultAdmin.UserName + " organization",
+                    var res = await usersManager.AddToRoleAsync(adminUser, ApplicationDbContext.AdminRoleName);
+                    if (!res.Succeeded)
+                        throw new InvalidOperationException(
+                            "Cannot add admin to admin role: " + res.Errors?.ToErrorString());
+                }
+
+                // Set admin password
+                var passRes = await usersManager.RemovePasswordAsync(adminUser);
+                if (!passRes.Succeeded)
+                    throw new InvalidOperationException(
+                        "Cannot remove password for admin: " + passRes.Errors?.ToErrorString());
+
+                passRes = await usersManager.AddPasswordAsync(adminUser, defaultAdmin.Password);
+                if (!passRes.Succeeded)
+                    throw new InvalidOperationException(
+                        "Cannot set password for admin: " + passRes.Errors?.ToErrorString());
+
+                // Sets admin email
+                adminUser.Email = defaultAdmin.Email;
+                await context.SaveChangesAsync();
+            }
+
+            // Ensure that admin organization exists
+            var adminOrgSlug = defaultAdmin.UserName.ToSlug();
+
+            var org = await context.Organizations.FirstOrDefaultAsync(o => o.Slug == adminOrgSlug);
+            if (org == null)
+            {
+                org = new Organization
+                {
+                    Slug = adminOrgSlug,
+                    Name = $"{defaultAdmin.UserName} organization",
                     CreationDate = DateTime.Now,
                     Description = null,
-                    IsPublic = true,
-                    // NOTE: Maybe this is a good idea to flag this org as "system"
-                    OwnerId = user.Id
+                    IsPublic = false,
+                    OwnerId = adminUser.Id
                 };
 
-                await context.Organizations.AddAsync(entity);
+                await context.Organizations.AddAsync(org);
                 await context.SaveChangesAsync();
             }
         }

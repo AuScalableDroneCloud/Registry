@@ -84,10 +84,13 @@ namespace Registry.Web.Services.Managers
             return new[] { info.ToDto() };
         }
 
-        public async Task<DatasetDto> AddNew(string orgSlug, DatasetEditDto dataset)
+        public async Task<DatasetDto> AddNew(string orgSlug, DatasetNewDto dataset)
         {
             var org = await _utils.GetOrganization(orgSlug);
 
+            if (!await _authManager.IsOwnerOrAdmin(org)) 
+                throw new UnauthorizedException("You are not authorized to add datasets to this organization");
+            
             if (dataset == null)
                 throw new BadRequestException("Dataset is null");
             
