@@ -20,16 +20,22 @@ using Registry.Web.Models.DTO;
 using Registry.Web.Services.Ports;
 using Registry.Web.Utilities;
 
+using System.Security.Claims;
+using Registry.Web.Exceptions;
+using Registry.Web.Services.Ports;
+
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Auth0.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 
+using System.IdentityModel.Claims
+
 namespace Registry.Web.Controllers
 {
     [ApiController]
 
-    public class AccountController : ControllerBaseEx
+    public class AccountController : Controller
     {
         public async Task Login(string returnUrl = "/")
         {
