@@ -32,7 +32,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace Registry.Web.Controllers
 {
     [ApiController]
-    [Route("login")]
+    [Route("login/auth0")]
 
     public class AccountController : Controller
     {
