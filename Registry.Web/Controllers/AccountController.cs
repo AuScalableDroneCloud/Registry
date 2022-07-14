@@ -29,8 +29,6 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Auth0.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 
-using System.IdentityModel.Claims;
-
 namespace Registry.Web.Controllers
 {
     [ApiController]
