@@ -12,7 +12,3 @@ spec:
   selector:
     app: registry
   type: ClusterIP
-  #type: LoadBalancer
-  #loadBalancerIP: ${REGISTRY_IP}
-status:
-  loadBalancer: {}

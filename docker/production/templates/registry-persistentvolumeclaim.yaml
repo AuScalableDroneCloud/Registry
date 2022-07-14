@@ -11,4 +11,3 @@ spec:
     requests:
       storage: 100Gi
   storageClassName: csi-sc-cinderplugin
-status: {}

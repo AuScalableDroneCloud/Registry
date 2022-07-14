@@ -35,24 +35,23 @@ spec:
               name: appconfig
 
       containers:
-        #- image: dronedb/registry:latest
-        - image: ghcr.io/auscalabledronecloud/dronedb-registry:sha-b5a968c
+        - image: dronedb/registry:latest
+        #- image: ghcr.io/auscalabledronecloud/dronedb-registry:latest
           name: registry
           #env:
           ports:
             - containerPort: 5000
           resources: {}
           volumeMounts:
-            - mountPath: /Registry/App_Data
-              subPath: App_Data
+            - mountPath: /data
+              subPath: data
               name: registry-claim
-            - mountPath: /Registry/logs
-              subPath: logs
-              name: registry-claim
-
-            - mountPath: /Registry/appsettings.json
+            - mountPath: /data/appsettings.json
               subPath: appsettings.json
               name: registry-claim
+            - mountPath: /tmp
+              name: tmp
+              subPath: tmp
 
       restartPolicy: Always
       volumes:
@@ -66,4 +65,8 @@ spec:
             items:
             - key: appsettings.json
               path: appsettings.json
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
 

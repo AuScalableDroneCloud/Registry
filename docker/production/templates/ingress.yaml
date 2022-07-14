@@ -1,0 +1,25 @@
+#Configure the ingress subdomains and paths
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dronedb
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    #cert-manager.io/cluster-issuer: letsencrypt-staging #Testing - cross-namespace
+    cert-manager.io/cluster-issuer: letsencrypt-prod #Ready for use - cross-namespace
+spec:
+  rules:
+    - host: registry.${WEBAPP_HOST}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: registry
+                port:
+                  number: 80
+  tls:
+    - hosts:
+      - registry.${WEBAPP_HOST}
+      secretName: asdc-registry-tls

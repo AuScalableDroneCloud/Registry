@@ -30,6 +30,7 @@ spec:
                 - ping
                 - -h
                 - localhost
+                - -p$MYSQL_ROOT_PASSWORD
             failureThreshold: 10
             timeoutSeconds: 20
           name: db

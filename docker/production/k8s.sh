@@ -43,3 +43,5 @@ apply_template registry-persistentvolumeclaim.yaml
 apply_template registry-deployment.yaml
 apply_template registry-service.yaml
 
+apply_template ingress.yaml
+
