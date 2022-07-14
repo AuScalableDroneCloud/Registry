@@ -35,8 +35,8 @@ spec:
               name: appconfig
 
       containers:
-        - image: dronedb/registry:latest
-        #- image: ghcr.io/auscalabledronecloud/dronedb-registry:latest
+        #- image: dronedb/registry:latest
+        - image: ghcr.io/auscalabledronecloud/dronedb-registry:latest
           name: registry
           #env:
           ports:
