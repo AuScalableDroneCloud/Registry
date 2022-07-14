@@ -32,6 +32,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="Auth0.AspNetCore.Authentication" Version="1.0.3" />
         <PackageReference Include="AspNetCore.HealthChecks.Hangfire" Version="6.0.2" />
         <PackageReference Include="AspNetCore.HealthChecks.UI.Client" Version="6.0.4" />
         <PackageReference Include="AspNetCore.HealthChecks.UI.Core" Version="6.0.4" />

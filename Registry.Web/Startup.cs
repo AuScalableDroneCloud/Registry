@@ -1,3 +1,4 @@
+//https://auth0.com/docs/quickstart/webapp/aspnet-core/01-login
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -50,6 +51,7 @@ using Registry.Web.Identity;
 using Registry.Web.Identity.Models;
 using Serilog;
 using Serilog.Events;
+using Auth0.AspNetCore.Authentication;
 
 namespace Registry.Web
 {
@@ -65,7 +67,7 @@ namespace Registry.Web
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddCors();
-            services.AddControllers();
+            //services.AddControllers(); //?
 
             services.AddSwaggerGen(c =>
             {
@@ -133,7 +135,13 @@ namespace Registry.Web
                 MagicStrings.RegistryConnectionName, "Data");
 
             var key = Encoding.ASCII.GetBytes(appSettings.Secret);
-            services.AddAuthentication(auth =>
+
+            ///////////////////////////////////////////////////////////////////////
+            ///https://auth0.com/docs/quickstart/webapp/aspnet-core
+
+            ///////////////////////////////////////////////////////////////////////
+            // https://auth0.com/docs/quickstart/webapp/aspnet-core-2/01-login
+            /*services.AddAuthentication(auth =>
                 {
                     auth.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                     auth.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -149,7 +157,74 @@ namespace Registry.Web
                         ValidateIssuer = false,
                         ValidateAudience = false
                     };
-                });
+                });*/
+
+            // https://github.com/auth0/auth0-aspnetcore-authentication
+            services.AddAuth0WebAppAuthentication(options =>
+            {
+              options.Domain = Configuration["Auth0:Domain"];
+              options.ClientId = Configuration["Auth0:ClientId"];
+              //options.ClientSecret = Configuration["Auth0:ClientSecret"];
+            });
+
+            services.AddControllersWithViews();
+
+            /*
+            services.AddAuthentication(options => {
+                options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+            })
+            .AddCookie()
+            .AddOpenIdConnect("Auth0", options => {
+                // Set the authority to your Auth0 domain
+                options.Authority = $"https://{Configuration["Auth0:Domain"]}";
+
+                // Configure the Auth0 Client ID and Client Secret
+                options.ClientId = Configuration["Auth0:ClientId"];
+                options.ClientSecret = Configuration["Auth0:ClientSecret"];
+
+                // Set response type to code
+                options.ResponseType = "code"; //OpenIdConnectResponseType.Code;
+
+                // Configure the scope
+                options.Scope.Clear();
+                options.Scope.Add("openid");
+
+                // Set the callback path, so Auth0 will call back to http://localhost:3000/callback
+                // Also ensure that you have added the URL as an Allowed Callback URL in your Auth0 dashboard
+                options.CallbackPath = new PathString("/callback");
+
+                // Configure the Claims Issuer to be Auth0
+                options.ClaimsIssuer = "Auth0";
+
+                //https://github.com/auth0-samples/auth0-aspnetcore-mvc-samples/blob/netcore2.1/Quickstart/01-Login/Startup.cs
+                options.Events = new OpenIdConnectEvents
+                {
+                    // handle the logout redirection 
+                    OnRedirectToIdentityProviderForSignOut = (context) =>
+                    {
+                        var logoutUri = $"https://{Configuration["Auth0:Domain"]}/v2/logout?client_id={Configuration["Auth0:ClientId"]}";
+
+                        var postLogoutUri = context.Properties.RedirectUri;
+                        if (!string.IsNullOrEmpty(postLogoutUri))
+                        {
+                            if (postLogoutUri.StartsWith("/"))
+                            {
+                                // transform to absolute
+                                var request = context.Request;
+                                postLogoutUri = request.Scheme + "://" + request.Host + request.PathBase + postLogoutUri;
+                            }
+                            logoutUri += $"&returnTo={ Uri.EscapeDataString(postLogoutUri)}";
+                        }
+
+                        context.Response.Redirect(logoutUri);
+                        context.HandleResponse();
+
+                        return Task.CompletedTask;
+                    }
+                };
+            });*/
 
             services.Configure<IdentityOptions>(options =>
             {
@@ -319,6 +394,11 @@ namespace Registry.Web
 
             app.UseResponseCompression();
             app.UseResponseCaching();
+
+            ///////////////////////////////////////////////////////////////////////
+            // https://auth0.com/docs/quickstart/webapp/aspnet-core-2/01-login
+            app.UseAuthentication();
+            ///////////////////////////////////////////////////////////////////////
 
             app.UseMiddleware<TokenManagerMiddleware>();
 
